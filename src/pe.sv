@@ -1,6 +1,14 @@
 /*
  * Single FP8 Multiply-Accumulate (MAC) unit with FP32 accumulation.
  * acc_out = acc_in + (row_in * weight_in)
+ *
+ * Current implementation uses seperate FP8 multiplier and FP32 
+ * adder modules, but we can merge them into a Fused Multiply-Accumulate (FMA) 
+ * unit to save die area. The current approach uses redundant normalization 
+ * and rounding logic, which can be optimized in a FMA unit.
+ * 
+ * FMA approach: multiply FP8 fractions, add exponents, and then 
+ * normalize and round the result once.
  */
 
 module pe #(
@@ -38,20 +46,20 @@ module pe #(
             weight_reg <= weight_in;
     end
     
-
+    
     // calculate product = (row_in * weight_reg)
     fp8_mul fp8_mul_inst (
-        .fp8_a(row_in),
-        .fp8_b(weight_reg),
-        .fp32_res(product)
+        .a(row_in),
+        .b(weight_reg),
+        .res(product)
     );
 
     // calculate acc_out = acc_in + product
     /*
     fp32_add fp32_add_inst (
-        .fp32_a(acc_in),
-        .fp32_b(product),
-        .fp32_res(acc_out)
+        .a(acc_in),
+        .b(product),
+        .res(acc_out)
     )
     */
 

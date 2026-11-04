@@ -1,4 +1,9 @@
 {
-  "verilog.linting.linter": "verilator",
-  "verilog.formatting.verilogHDL.formatter": "verible-verilog-format"
+    "verilog.linting.linter": "verilator",
+    "verilog.linting.verilator.runAtFileLocation": false,
+    "verilog.linting.verilator.includePath": [
+        "src",
+        "src/fp_lib"
+    ],
+    "verilog.linting.verilator.arguments": "--sv -Wall -y src -y src/fp_lib +libext+.sv+.v src/fp_lib/fp_pkg.sv"
 }

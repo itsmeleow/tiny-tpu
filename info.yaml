@@ -18,10 +18,15 @@ project:
   # Don't forget to also update `PROJECT_SOURCES` in test/Makefile.
   source_files:
     - "tt_um_itsmeleow_tiny_tpu.sv"
+    - "fp_lib/fp_pkg.sv"
+    - "fp_lib/fp8_mul.sv"
+    - "fp_lib/fp8_to_fp32.sv"
+    - "fp_lib/fp32_add.sv"
+    - "fp_lib/fp32_mul.sv"
+    - "fp_lib/fp32_to_fp8.sv"
     - "accumulation_buffer.sv"
     - "address_generator.sv"
     - "controller.sv"
-    - "floating_point.sv"
     - "host_interface.sv"
     - "mxu.sv"
     - "pe.sv"
