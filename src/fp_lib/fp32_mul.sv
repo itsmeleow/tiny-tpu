@@ -3,9 +3,9 @@
  */
 
 module fp32_mul (
-    input  logic [31:0] fp32_a,
-    input  logic [31:0] fp32_b,
-    output logic [31:0] fp32_res
+    input  fp_pkg::fp32_t a,
+    input  fp_pkg::fp32_t b,
+    output fp_pkg::fp32_t res
 );
 
 endmodule

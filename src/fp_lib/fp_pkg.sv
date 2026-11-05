@@ -65,8 +65,8 @@ package fp_pkg;
     localparam FP32_EXP_WIDTH = 8;
     localparam FP32_FRA_WIDTH = 23;
 
-    localparam int signed FP8_BIAS  = 7;
-    localparam int signed FP32_BIAS = 127;
+    localparam FP8_BIAS  = 10'sd7;
+    localparam FP32_BIAS = 10'sd127;
     
     typedef struct packed {
         logic                     sign;

@@ -27,6 +27,7 @@ module tt_um_itsmeleow_tiny_tpu (
             activation_reg <= ui_in;
         end
 
+    // instantiate the PE module with random inputs for testing
     pe pe_inst (
     	.clk(clk),
     	.rst_n(rst_n),
@@ -37,8 +38,8 @@ module tt_um_itsmeleow_tiny_tpu (
     	.weight_in(ui_in),
     	.row_in(activation_reg),
     	.row_out(row_out_unused),
-    	// .acc_in(product_out),
-        .acc_out(product_out)
+    	.psum_in(product_out),
+        .psum_out(product_out)
   	);
 
   	// Read the registered 32-bit result as four bytes, least significant first.
