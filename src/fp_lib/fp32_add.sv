@@ -62,7 +62,7 @@ module fp32_add (
 
         // normalize
         if (mantissa_sum[24]) begin
-            // carry-out - shift right and increase the exponent.
+            // carry-out: shift right and increase the exponent.
             mantissa_sum    = mantissa_sum >> 1;
             exponent_result = exponent_result + 9'd1;
         end else begin
