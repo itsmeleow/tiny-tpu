@@ -4,11 +4,11 @@ project:
   author:       "itsmeleow"  
   discord:      "1eow"
   description:  "TPU-inspired FP8 accelerator for small Deep Neural Network (DNN) training and inference"
-  language:     "SystemVerilog"
+  language:     "Verilog"
   clock_hz:     10000000       # Clock frequency in Hz (or 0 if not applicable)
 
   # How many tiles your design occupies? A single tile is about 167x108 uM.
-  tiles: "1x2"          # Valid values: 1x1, 1x2, 2x2, 3x2, 4x2, 6x2 or 8x2
+  tiles: "2x2"          # Valid values: 1x1, 1x2, 2x2, 3x2, 4x2, 6x2 or 8x2
 
   # Your top module name must start with "tt_um_". Make it unique by including your github username:
   top_module:  "tt_um_itsmeleow_tiny_tpu"
@@ -17,22 +17,7 @@ project:
   # Source files must be in ./src and you must list each source file separately, one per line.
   # Don't forget to also update `PROJECT_SOURCES` in test/Makefile.
   source_files:
-    - "tt_um_itsmeleow_tiny_tpu.sv"
-    - "fp_lib/fp_pkg.sv"
-    - "fp_lib/fp8_mul.sv"
-    - "fp_lib/fp8_to_fp32.sv"
-    - "fp_lib/fp32_add.sv"
-    - "fp_lib/fp32_mul.sv"
-    - "fp_lib/fp32_to_fp8.sv"
-    - "accumulation_buffer.sv"
-    - "address_generator.sv"
-    - "controller.sv"
-    - "host_interface.sv"
-    - "mxu.sv"
-    - "pe.sv"
-    - "tiny_tpu.sv"
-    - "unified_buffer.sv"
-    - "vpu.sv"
+    - "tiny_tpu_generated.v"
 
 # The pinout of your project. Leave unused pins blank. DO NOT delete or add any pins.
 # This section is for the datasheet/website. Use descriptive names (e.g., RX, TX, MOSI, SCL, SEG_A, etc.).
