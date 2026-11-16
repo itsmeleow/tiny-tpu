@@ -12,6 +12,7 @@ PROJECT_SOURCES = fp_lib/fp_pkg.sv \
 				  fp_lib/fp32_add.sv \
     			  fp_lib/fp32_mul.sv \
     			  fp_lib/fp32_to_fp8.sv \
+				  mxu.sv \
 				  pe.sv \
 				  tt_um_itsmeleow_tiny_tpu.sv \
 
@@ -42,7 +43,7 @@ endif
 COMPILE_ARGS 		+= -I$(SRC_DIR)
 
 # Include the testbench sources:
-VERILOG_SOURCES += $(CURDIR)/tb.v
+VERILOG_SOURCES += $(CURDIR)/tb.sv
 TOPLEVEL = tb
 
 # List test modules to run, separated by commas and without the .py suffix:
