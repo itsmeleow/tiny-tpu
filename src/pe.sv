@@ -9,6 +9,8 @@
  * 
  * FMA approach: multiply FP8 fractions, align product with psum_in, add exponents
  * & mantissas, then normalize and round the result once.
+ * 
+ * Final optimizations should use a pipeline approach. We can split calculations into 3 stages.
  */
 
 module pe #(
@@ -36,8 +38,8 @@ module pe #(
     output logic [ACC_WIDTH-1:0]  psum_out
 );
 
-    logic [31:0] sum;
-    logic [31:0] product;
+    logic [31:0] sum_reg;
+    logic [31:0] product_reg;
     logic [7:0]  weight_reg;
 
     always_ff @(posedge clk or negedge rst_n) begin
@@ -53,23 +55,23 @@ module pe #(
                 out_valid <= in_valid;
                 if (in_valid) begin
                     activation_out <= activation_in;
-                    psum_out <= sum;
+                    psum_out <= sum_reg;
                 end
             end
         end
     end
     
-    // calculate product = (activation_in * weight_reg)
+    // calculate product_reg = (activation_in * weight_reg)
     fp8_mul fp8_mul_inst (
         .a(activation_in),
         .b(weight_reg),
-        .res(product)
+        .res(product_reg)
     );
 
-    // calculate psum_out = psum_in + product
+    // calculate psum_out = psum_in + product_reg
     fp32_add fp32_add_inst (
         .a(psum_in),
-        .b(product),
-        .res(sum)
+        .b(product_reg),
+        .res(sum_reg)
     );
 endmodule

@@ -304,8 +304,8 @@ module pe (
 	output reg [DATA_WIDTH - 1:0] activation_out;
 	input wire [ACC_WIDTH - 1:0] psum_in;
 	output reg [ACC_WIDTH - 1:0] psum_out;
-	wire [31:0] sum;
-	wire [31:0] product;
+	wire [31:0] sum_reg;
+	wire [31:0] product_reg;
 	reg [7:0] weight_reg;
 	always @(posedge clk or negedge rst_n)
 		if (!rst_n) begin
@@ -321,19 +321,19 @@ module pe (
 				out_valid <= in_valid;
 				if (in_valid) begin
 					activation_out <= activation_in;
-					psum_out <= sum;
+					psum_out <= sum_reg;
 				end
 			end
 		end
 	fp8_mul fp8_mul_inst(
 		.a(activation_in),
 		.b(weight_reg),
-		.res(product)
+		.res(product_reg)
 	);
 	fp32_add fp32_add_inst(
 		.a(psum_in),
-		.b(product),
-		.res(sum)
+		.b(product_reg),
+		.res(sum_reg)
 	);
 endmodule
 module tiny_tpu (
