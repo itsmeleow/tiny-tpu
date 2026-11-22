@@ -38,7 +38,6 @@ module mxu #(
             assign psum_bus[0][col] = '0;
             assign result[col] = psum_bus[ARRAY_SIZE][col];
             assign result_valid[col] = activation_valid_bus[ARRAY_SIZE-1][col+1];
-
         end
     endgenerate
 

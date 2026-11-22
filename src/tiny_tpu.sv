@@ -4,5 +4,4 @@ module tiny_tpu (
 );
 
 
-
 endmodule
