@@ -3,12 +3,12 @@
  *
  */
 
-module vpu #(
-    parameter integer VPU_WIDTH = 32
-) (
-    input  logic [VPU_WIDTH-1:0] a,
-    input  logic [VPU_WIDTH-1:0] b,
-    output logic [VPU_WIDTH-1:0] result
+module vpu 
+    import fp_pkg::*;
+(
+    input  fp32_t a,
+    input  fp32_t b,
+    output fp32_t result
 );
 
     // Simple vector addition for now
