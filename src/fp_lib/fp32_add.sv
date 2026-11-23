@@ -5,10 +5,12 @@
  * Subnormal results are flushed to zero.
  */
 
-module fp32_add (
-    input  fp_pkg::fp32_t a,
-    input  fp_pkg::fp32_t b,
-    output fp_pkg::fp32_t res
+module fp32_add 
+    import fp_pkg::*;
+(
+    input  fp32_t a,
+    input  fp32_t b,
+    output fp32_t res
 );
 
     logic        sign_result;

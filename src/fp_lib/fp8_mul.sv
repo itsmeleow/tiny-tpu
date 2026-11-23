@@ -2,13 +2,13 @@
  * Multiply two FP8 (E4M3FN) operands and produce an FP32 product.
  */
 
-import fp_pkg::FP8_BIAS;
-import fp_pkg::FP32_BIAS;
 
-module fp8_mul (
-    input  fp_pkg::fp8_e4m3_t a,
-    input  fp_pkg::fp8_e4m3_t b,
-    output fp_pkg::fp32_t     res
+module fp8_mul 
+    import fp_pkg::*; 
+(
+    input  fp8_e4m3_t a,
+    input  fp8_e4m3_t b,
+    output fp32_t     res
 );
     logic       sign_result;
     logic [3:0] exponent_a, exponent_b;
