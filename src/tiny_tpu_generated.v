@@ -1,23 +1,69 @@
-module accumulation_buffer (
-	clk,
-	rst_n
-);
-	input wire clk;
-	input wire rst_n;
-endmodule
-module address_generator (
-	clk,
-	rst_n
-);
-	input wire clk;
-	input wire rst_n;
-endmodule
 module controller (
 	clk,
-	rst_n
+	rst_n,
+	s_axis_tdata,
+	s_axis_tvalid,
+	s_axis_tready,
+	s_axis_tlast,
+	m_axis_tvalid,
+	m_axis_tready,
+	m_axis_tlast,
+	ser_done,
+	mxu_en,
+	weight_load,
+	out_fmt,
+	vpu_op
 );
+	reg _sv2v_0;
+	parameter DATA_W = 8;
+	parameter CNT_W = 4;
 	input wire clk;
 	input wire rst_n;
+	input wire [DATA_W - 1:0] s_axis_tdata;
+	input wire s_axis_tvalid;
+	output reg s_axis_tready;
+	input wire s_axis_tlast;
+	output wire m_axis_tvalid;
+	input wire m_axis_tready;
+	output wire m_axis_tlast;
+	input wire ser_done;
+	output wire mxu_en;
+	output wire weight_load;
+	output wire [1:0] out_fmt;
+	output wire [2:0] vpu_op;
+	reg [2:0] state;
+	reg [2:0] next_state;
+	wire s_handshake;
+	assign s_handshake = s_axis_tvalid && s_axis_tlast;
+	reg [DATA_W - 1:0] cmd_reg;
+	always @(posedge clk or negedge rst_n) begin
+		if (!rst_n) begin
+			state <= 3'b000;
+			cmd_reg <= 8'b00000000;
+		end
+		else
+			state <= next_state;
+		case (state)
+			3'b000:
+				if (s_handshake)
+					cmd_reg <= s_axis_tdata;
+			3'b001, 3'b010:
+				if (s_handshake)
+					cmd_reg <= s_axis_tdata;
+			3'b011: cmd_reg <= s_axis_tdata;
+			3'b100: cmd_reg <= s_axis_tdata;
+			3'b101: cmd_reg <= s_axis_tdata;
+			default:
+				;
+		endcase
+	end
+	always @(*) begin
+		if (_sv2v_0)
+			;
+		next_state = state;
+		s_axis_tready = 1'b0;
+	end
+	initial _sv2v_0 = 0;
 endmodule
 module fp32_add (
 	a,
@@ -201,13 +247,6 @@ module fp8_to_fp32 (
 	localparam fp_pkg_FP32_FRA_WIDTH = 23;
 	output wire [31:0] out;
 endmodule
-module host_interface (
-	clk,
-	rst_n
-);
-	input wire clk;
-	input wire rst_n;
-endmodule
 module mxu (
 	clk,
 	rst_n,
@@ -336,6 +375,62 @@ module pe (
 		.res(sum_reg)
 	);
 endmodule
+module systolic_data_setup (
+	clk,
+	rst_n,
+	step_en,
+	act_in_valid,
+	act_in,
+	act_out_valid,
+	act_out
+);
+	parameter ARRAY_SIZE = 2;
+	parameter DATA_WIDTH = 8;
+	input wire clk;
+	input wire rst_n;
+	input wire step_en;
+	input wire [0:ARRAY_SIZE - 1] act_in_valid;
+	input wire [(ARRAY_SIZE * DATA_WIDTH) - 1:0] act_in;
+	output wire [0:ARRAY_SIZE - 1] act_out_valid;
+	output wire [(ARRAY_SIZE * DATA_WIDTH) - 1:0] act_out;
+	genvar _gv_row_2;
+	generate
+		for (_gv_row_2 = 0; _gv_row_2 < ARRAY_SIZE; _gv_row_2 = _gv_row_2 + 1) begin : gen_row
+			localparam row = _gv_row_2;
+			if (row == 0) begin : passthrough
+				assign act_out[(ARRAY_SIZE - 1) * DATA_WIDTH+:DATA_WIDTH] = act_in[(ARRAY_SIZE - 1) * DATA_WIDTH+:DATA_WIDTH];
+				assign act_out_valid[0] = act_in_valid[0];
+			end
+			else begin : skew_pipe
+				reg [DATA_WIDTH - 1:0] data_pipe [0:row - 1];
+				reg valid_pipe [0:row - 1];
+				always @(posedge clk or negedge rst_n)
+					if (!rst_n) begin : sv2v_autoblock_1
+						reg signed [31:0] k;
+						for (k = 0; k < row; k = k + 1)
+							begin
+								data_pipe[k] <= 1'sb0;
+								valid_pipe[k] <= 1'b0;
+							end
+					end
+					else if (step_en) begin
+						data_pipe[0] <= act_in[((ARRAY_SIZE - 1) - row) * DATA_WIDTH+:DATA_WIDTH];
+						valid_pipe[0] <= act_in_valid[row];
+						begin : sv2v_autoblock_2
+							reg signed [31:0] k;
+							for (k = 1; k < row; k = k + 1)
+								begin
+									data_pipe[k] <= data_pipe[k - 1];
+									valid_pipe[k] <= valid_pipe[k - 1];
+								end
+						end
+					end
+				assign act_out[((ARRAY_SIZE - 1) - row) * DATA_WIDTH+:DATA_WIDTH] = data_pipe[row - 1];
+				assign act_out_valid[row] = valid_pipe[row - 1];
+			end
+		end
+	endgenerate
+endmodule
 module tiny_tpu (
 	clk,
 	rst_n
@@ -443,9 +538,10 @@ module vpu (
 	b,
 	result
 );
-	parameter integer VPU_WIDTH = 32;
-	input wire [VPU_WIDTH - 1:0] a;
-	input wire [VPU_WIDTH - 1:0] b;
-	output wire [VPU_WIDTH - 1:0] result;
+	localparam fp_pkg_FP32_EXP_WIDTH = 8;
+	localparam fp_pkg_FP32_FRA_WIDTH = 23;
+	input wire [31:0] a;
+	input wire [31:0] b;
+	output wire [31:0] result;
 	assign result = a + b;
 endmodule
