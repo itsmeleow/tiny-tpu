@@ -6,7 +6,7 @@ SIM ?= icarus
 FST ?= -fst # Use more efficient FST format
 TOPLEVEL_LANG ?= verilog
 SRC_DIR := $(abspath $(CURDIR)/../src)
-PROJECT_SOURCES := tiny_tpu_generated.v
+PROJECT_SOURCES := tpu_generated.v
 export PYTHONPATH := $(abspath $(CURDIR)/..)$(if $(PYTHONPATH),:$(PYTHONPATH))
 
 ifneq ($(GATES),yes)

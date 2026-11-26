@@ -1,13 +1,11 @@
-"""E4M3FN multiplier reference. Port values are unsigned integer bit patterns."""
+"""FP8 E4M3FN multiplier reference. Port values are unsigned integer bit patterns."""
 
 from operator import index
 
 import ml_dtypes
 import numpy as np
 
-
 FP8 = ml_dtypes.float8_e4m3fn
-
 
 def fp8_to_float32(bits: int) -> np.float32:
     """Decode a raw FP8 byte, including signed zero, subnormals, and NaNs."""

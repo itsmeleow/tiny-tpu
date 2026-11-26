@@ -1,6 +1,6 @@
 FP_PACKAGE := src/fp_lib/fp_pkg.sv
 SV_SOURCES := $(shell find src -type f -name '*.sv' ! -path '$(FP_PACKAGE)' | sort)
-GENERATED  := src/tiny_tpu_generated.v
+GENERATED  := src/tpu_generated.v
 
 # sv2v (SystemVerilog -> Verilog)
 # TT Yosys is configured for Verilog support, therefore, SystemVerilog slang is not supported.

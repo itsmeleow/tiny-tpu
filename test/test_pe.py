@@ -20,7 +20,6 @@ async def test_pe(dut):
     await RisingEdge(dut.clk)
 
     # compute pe
-    # await FallingEdge(dut.clk)
     dut.weight_load.value = 0
     dut.weight_in.value = 0x48
     dut.step_en.value = 1
@@ -39,3 +38,7 @@ async def test_pe(dut):
     actual = int(dut.psum_out.value)
     expected = 0x40E00000
     assert actual == expected, (f"PE output: expected 0x{expected:08X}, got 0x{actual:08X}")
+
+
+    # Test 2
+    
