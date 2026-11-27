@@ -1,102 +1,76 @@
 /*
- * FP32 Addition with exponent alignment and rounding.
- * Simplified version: rounding is not implemented yet.
- * Supports normal finite inputs and zero.
- * Subnormal results are flushed to zero.
+ * FP32 Addition
+ * Add two FP32 operands and produce a FP32 result.
+ * - Supports normal finite inputs and zero; subnormal results are flushed to zero.
  */
-
-module fp32_add 
+module fp32_add
     import fp_pkg::*;
 (
     input  fp32_t a,
     input  fp32_t b,
     output fp32_t res
 );
-
+    logic        a_ge_b;
     logic        sign_result;
-    logic [7:0]  exponent_a, exponent_b, exponent_diff;
-    logic [8:0]  exponent_result;
-    logic [22:0] fraction_a, fraction_b;
+    logic [7:0]  exp_big, exp_small, exp_diff;
+    logic [23:0] mant_big, mant_small, mant_small_aligned;
+    logic [24:0] mant_sum;
 
-    // fraction a and b with hidden leading one restored
-    logic [23:0] mantissa_a, mantissa_b;
-
-    logic [24:0] mantissa_sum;
+    logic [23:0] norm_mant;
+    logic [4:0]  lz;
+    logic [8:0]  exp_carry;
+    logic [7:0]  exp_sub;
 
     always_comb begin
-        exponent_a = a[30:23];
-        exponent_b = b[30:23];
-        fraction_a = a[22:0];
-        fraction_b = b[22:0];
+        // order by magnitude so big >= small always
+        a_ge_b      = (a[30:0] >= b[30:0]);
+        sign_result = a_ge_b ? a[31]           : b[31];
+        exp_big     = a_ge_b ? a[30:23]        : b[30:23];
+        exp_small   = a_ge_b ? b[30:23]        : a[30:23];
+        mant_big    = a_ge_b ? {1'b1, a[22:0]} : {1'b1, b[22:0]};
+        mant_small  = a_ge_b ? {1'b1, b[22:0]} : {1'b1, a[22:0]};
 
-        mantissa_a = {1'b1, fraction_a};
-        mantissa_b = {1'b1, fraction_b};
+        // single exponent subtractor + single 5-bit alignment shifter
+        exp_diff = exp_big - exp_small;
+        mant_small_aligned = (exp_diff >= 8'd24) ? 24'd0 : (mant_small >> exp_diff[4:0]);
 
-        // the larger magnitude determines the sign of the result
-        if (a[30:0] >= b[30:0])
-            sign_result = a[31];
+        // single 25-bit add/sub (non-negative because big >= small)
+        if (a[31] == b[31])
+            mant_sum = {1'b0, mant_big} + {1'b0, mant_small_aligned};
         else
-            sign_result = b[31];
+            mant_sum = {1'b0, mant_big} - {1'b0, mant_small_aligned};
 
-        // align exponents (match the larger exponent)
-        // we shift the fraction of the smaller exponent >> by the dif in the exponents
-        if (exponent_a > exponent_b) begin
-            exponent_diff   = exponent_a - exponent_b;
-            mantissa_b      = mantissa_b >> exponent_diff;
-            exponent_result = {1'b0, exponent_a};
-        end else begin
-            exponent_diff   = exponent_b - exponent_a;
-            mantissa_a      = mantissa_a >> exponent_diff;
-            exponent_result = {1'b0, exponent_b};
-        end
+        // 5-stage binary LZC + fused left-normalizer
+        norm_mant = mant_sum[23:0];
+        lz        = 5'd0;
+        if (norm_mant[23:8]  == 16'd0) begin lz[4] = 1'b1; norm_mant = {norm_mant[7:0],  16'd0}; end
+        if (norm_mant[23:16] ==  8'd0) begin lz[3] = 1'b1; norm_mant = {norm_mant[15:0],  8'd0}; end
+        if (norm_mant[23:20] ==  4'd0) begin lz[2] = 1'b1; norm_mant = {norm_mant[19:0],  4'd0}; end
+        if (norm_mant[23:22] ==  2'd0) begin lz[1] = 1'b1; norm_mant = {norm_mant[21:0],  2'd0}; end
+        if (norm_mant[23]    ==  1'b0) begin lz[0] = 1'b1; norm_mant = {norm_mant[22:0],  1'd0}; end
 
-        // add fractions, extend operands to account for potential carry-out
-        if (a[31] == b[31]) begin
-            mantissa_sum = {1'b0, mantissa_a}
-                         + {1'b0, mantissa_b};
-        end else if (a[30:0] >= b[30:0]) begin
-            mantissa_sum = {1'b0, mantissa_a}
-                         - {1'b0, mantissa_b};
-        end else begin
-            mantissa_sum = {1'b0, mantissa_b}
-                         - {1'b0, mantissa_a};
-        end
+        exp_carry = {1'b0, exp_big} + 9'd1;
+        exp_sub   = exp_big - {3'd0, lz};
 
-        // normalize
-        if (mantissa_sum[24]) begin
-            // carry-out: shift right and increase the exponent.
-            mantissa_sum    = mantissa_sum >> 1;
-            exponent_result = exponent_result + 9'd1;
-        end else begin
-            // subtraction may require left shifts to restore the leading 1
-            for (int i = 0; i < 23; i++) begin
-                if (!mantissa_sum[23] &&
-                    mantissa_sum != 25'd0 &&
-                    exponent_result > 9'd1) begin
-                    mantissa_sum    = mantissa_sum << 1;
-                    exponent_result = exponent_result - 9'd1;
-                end
-            end
-        end
-
-        // handle zero inputs, cancellation, overflow, and underflow
+        // pack result (zero, cancellation, overflow, underflow)
         if ((a[30:0] == 31'd0) && (b[30:0] == 31'd0))
             res = {a[31] & b[31], 31'd0};
         else if (a[30:0] == 31'd0)
             res = b;
         else if (b[30:0] == 31'd0)
             res = a;
-        else if (mantissa_sum == 25'd0)
+        else if (mant_sum == 25'd0)
             res = 32'd0;
-        else if (exponent_result >= 9'd255)
-            res = {sign_result, 8'hFF, 23'd0};
-        else if (!mantissa_sum[23])
-            res = {sign_result, 31'd0};
-        else
-            res = {
-                sign_result,
-                exponent_result[7:0],
-                mantissa_sum[22:0]
-            };
+        else if (mant_sum[24]) begin
+            if (exp_carry >= 9'd255)
+                res = {sign_result, 8'hFF, 23'd0};
+            else
+                res = {sign_result, exp_carry[7:0], mant_sum[23:1]};
+        end else begin
+            if (exp_big <= {3'd0, lz})
+                res = {sign_result, 31'd0};
+            else
+                res = {sign_result, exp_sub, norm_mant[22:0]};
+        end
     end
 endmodule

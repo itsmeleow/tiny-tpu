@@ -12,9 +12,9 @@ module controller #(
     parameter ARRAY_SIZE    = 2,
     parameter DATA_WIDTH    = 8,
     parameter ACC_WIDTH     = 32,
-    parameter MATMUL_CYCLES = 3 * ARRAY_SIZE - 1
+    parameter MATMUL_CYCLES = 3 * ARRAY_SIZE
 ) (
-    input  logic                  clk,
+    input  logic                  clk, // TODO: FIX MATMUL_CYCLES and check timings
     input  logic                  rst_n,
 
     // AXI-Stream Slave (Host -> TPU)

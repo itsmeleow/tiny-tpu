@@ -74,7 +74,7 @@ module controller (
 	parameter ARRAY_SIZE = 2;
 	parameter DATA_WIDTH = 8;
 	parameter ACC_WIDTH = 32;
-	parameter MATMUL_CYCLES = (3 * ARRAY_SIZE) - 1;
+	parameter MATMUL_CYCLES = 3 * ARRAY_SIZE;
 	input wire clk;
 	input wire rst_n;
 	input wire [DATA_WIDTH - 1:0] s_axis_tdata;
@@ -260,84 +260,78 @@ module fp32_add (
 	input wire [31:0] a;
 	input wire [31:0] b;
 	output reg [31:0] res;
+	reg a_ge_b;
 	reg sign_result;
-	reg [7:0] exponent_a;
-	reg [7:0] exponent_b;
-	reg [7:0] exponent_diff;
-	reg [8:0] exponent_result;
-	reg [22:0] fraction_a;
-	reg [22:0] fraction_b;
-	reg [23:0] mantissa_a;
-	reg [23:0] mantissa_b;
-	reg [24:0] mantissa_sum;
+	reg [7:0] exp_big;
+	reg [7:0] exp_small;
+	reg [7:0] exp_diff;
+	reg [23:0] mant_big;
+	reg [23:0] mant_small;
+	reg [23:0] mant_small_aligned;
+	reg [24:0] mant_sum;
+	reg [23:0] norm_mant;
+	reg [4:0] lz;
+	reg [8:0] exp_carry;
+	reg [7:0] exp_sub;
 	always @(*) begin
 		if (_sv2v_0)
 			;
-		exponent_a = a[30:23];
-		exponent_b = b[30:23];
-		fraction_a = a[22:0];
-		fraction_b = b[22:0];
-		mantissa_a = {1'b1, fraction_a};
-		mantissa_b = {1'b1, fraction_b};
-		if (a[30:0] >= b[30:0])
-			sign_result = a[31];
-		else
-			sign_result = b[31];
-		if (exponent_a > exponent_b) begin
-			exponent_diff = exponent_a - exponent_b;
-			mantissa_b = mantissa_b >> exponent_diff;
-			exponent_result = {1'b0, exponent_a};
-		end
-		else begin
-			exponent_diff = exponent_b - exponent_a;
-			mantissa_a = mantissa_a >> exponent_diff;
-			exponent_result = {1'b0, exponent_b};
-		end
+		a_ge_b = a[30:0] >= b[30:0];
+		sign_result = (a_ge_b ? a[31] : b[31]);
+		exp_big = (a_ge_b ? a[30:23] : b[30:23]);
+		exp_small = (a_ge_b ? b[30:23] : a[30:23]);
+		mant_big = (a_ge_b ? {1'b1, a[22:0]} : {1'b1, b[22:0]});
+		mant_small = (a_ge_b ? {1'b1, b[22:0]} : {1'b1, a[22:0]});
+		exp_diff = exp_big - exp_small;
+		mant_small_aligned = (exp_diff >= 8'd24 ? 24'd0 : mant_small >> exp_diff[4:0]);
 		if (a[31] == b[31])
-			mantissa_sum = {1'b0, mantissa_a} + {1'b0, mantissa_b};
-		else if (a[30:0] >= b[30:0])
-			mantissa_sum = {1'b0, mantissa_a} - {1'b0, mantissa_b};
+			mant_sum = {1'b0, mant_big} + {1'b0, mant_small_aligned};
 		else
-			mantissa_sum = {1'b0, mantissa_b} - {1'b0, mantissa_a};
-		if (mantissa_sum[24]) begin
-			mantissa_sum = mantissa_sum >> 1;
-			exponent_result = exponent_result + 9'd1;
+			mant_sum = {1'b0, mant_big} - {1'b0, mant_small_aligned};
+		norm_mant = mant_sum[23:0];
+		lz = 5'd0;
+		if (norm_mant[23:8] == 16'd0) begin
+			lz[4] = 1'b1;
+			norm_mant = {norm_mant[7:0], 16'd0};
 		end
-		else begin : sv2v_autoblock_1
-			reg signed [31:0] i;
-			for (i = 0; i < 23; i = i + 1)
-				if ((!mantissa_sum[23] && (mantissa_sum != 25'd0)) && (exponent_result > 9'd1)) begin
-					mantissa_sum = mantissa_sum << 1;
-					exponent_result = exponent_result - 9'd1;
-				end
+		if (norm_mant[23:16] == 8'd0) begin
+			lz[3] = 1'b1;
+			norm_mant = {norm_mant[15:0], 8'd0};
 		end
+		if (norm_mant[23:20] == 4'd0) begin
+			lz[2] = 1'b1;
+			norm_mant = {norm_mant[19:0], 4'd0};
+		end
+		if (norm_mant[23:22] == 2'd0) begin
+			lz[1] = 1'b1;
+			norm_mant = {norm_mant[21:0], 2'd0};
+		end
+		if (norm_mant[23] == 1'b0) begin
+			lz[0] = 1'b1;
+			norm_mant = {norm_mant[22:0], 1'd0};
+		end
+		exp_carry = {1'b0, exp_big} + 9'd1;
+		exp_sub = exp_big - {3'd0, lz};
 		if ((a[30:0] == 31'd0) && (b[30:0] == 31'd0))
 			res = {a[31] & b[31], 31'd0};
 		else if (a[30:0] == 31'd0)
 			res = b;
 		else if (b[30:0] == 31'd0)
 			res = a;
-		else if (mantissa_sum == 25'd0)
+		else if (mant_sum == 25'd0)
 			res = 32'd0;
-		else if (exponent_result >= 9'd255)
-			res = {sign_result, 31'h7f800000};
-		else if (!mantissa_sum[23])
+		else if (mant_sum[24]) begin
+			if (exp_carry >= 9'd255)
+				res = {sign_result, 31'h7f800000};
+			else
+				res = {sign_result, exp_carry[7:0], mant_sum[23:1]};
+		end
+		else if (exp_big <= {3'd0, lz})
 			res = {sign_result, 31'd0};
 		else
-			res = {sign_result, exponent_result[7:0], mantissa_sum[22:0]};
+			res = {sign_result, exp_sub, norm_mant[22:0]};
 	end
 	initial _sv2v_0 = 0;
-endmodule
-module fp32_to_fp8 (
-	in,
-	out
-);
-	localparam fp_pkg_FP32_EXP_WIDTH = 8;
-	localparam fp_pkg_FP32_FRA_WIDTH = 23;
-	input wire [31:0] in;
-	localparam fp_pkg_FP8_EXP_WIDTH = 4;
-	localparam fp_pkg_FP8_FRA_WIDTH = 3;
-	output wire [7:0] out;
 endmodule
 module fp8_mul (
 	a,
@@ -352,24 +346,28 @@ module fp8_mul (
 	localparam fp_pkg_FP32_EXP_WIDTH = 8;
 	localparam fp_pkg_FP32_FRA_WIDTH = 23;
 	output reg [31:0] res;
+	localparam fp_pkg_FP32_BIAS = 10'sd127;
+	localparam fp_pkg_FP8_BIAS = 10'sd7;
+	function automatic signed [7:0] sv2v_cast_8_signed;
+		input reg signed [7:0] inp;
+		sv2v_cast_8_signed = inp;
+	endfunction
+	localparam [7:0] EXP_OFFSET = sv2v_cast_8_signed((fp_pkg_FP32_BIAS - (2 * fp_pkg_FP8_BIAS)) + 1);
 	reg sign_result;
 	reg [3:0] exponent_a;
 	reg [3:0] exponent_b;
+	reg [3:0] eff_exp_a;
+	reg [3:0] eff_exp_b;
 	reg [2:0] fraction_a;
 	reg [2:0] fraction_b;
 	reg [3:0] mantissa_a;
 	reg [3:0] mantissa_b;
 	reg [7:0] mantissa_product;
 	reg [7:0] mantissa_normalized;
-	reg signed [9:0] exponent_unbiased;
+	reg [2:0] lz;
+	reg [7:0] exponent_sum;
 	reg [7:0] exponent_fp32;
 	reg [22:0] fraction_fp32;
-	localparam fp_pkg_FP32_BIAS = 10'sd127;
-	localparam fp_pkg_FP8_BIAS = 10'sd7;
-	function automatic [7:0] sv2v_cast_8;
-		input reg [7:0] inp;
-		sv2v_cast_8 = inp;
-	endfunction
 	always @(*) begin
 		if (_sv2v_0)
 			;
@@ -381,31 +379,31 @@ module fp8_mul (
 		mantissa_a = {exponent_a != 4'b0000, fraction_a};
 		mantissa_b = {exponent_b != 4'b0000, fraction_b};
 		mantissa_product = mantissa_a * mantissa_b;
+		eff_exp_a = (exponent_a == 4'd0 ? 4'd1 : exponent_a);
+		eff_exp_b = (exponent_b == 4'd0 ? 4'd1 : exponent_b);
+		exponent_sum = ({4'd0, eff_exp_a} + {4'd0, eff_exp_b}) + EXP_OFFSET;
 		mantissa_normalized = mantissa_product;
-		exponent_unbiased = 10'sd0;
-		exponent_fp32 = 8'd0;
-		fraction_fp32 = 23'd0;
-		res = 32'd0;
+		lz = 3'd0;
+		if (mantissa_normalized[7:4] == 4'd0) begin
+			lz[2] = 1'b1;
+			mantissa_normalized = {mantissa_normalized[3:0], 4'd0};
+		end
+		if (mantissa_normalized[7:6] == 2'd0) begin
+			lz[1] = 1'b1;
+			mantissa_normalized = {mantissa_normalized[5:0], 2'd0};
+		end
+		if (mantissa_normalized[7] == 1'b0) begin
+			lz[0] = 1'b1;
+			mantissa_normalized = {mantissa_normalized[6:0], 1'd0};
+		end
+		exponent_fp32 = exponent_sum - {5'd0, lz};
+		fraction_fp32 = {mantissa_normalized[6:0], 16'b0000000000000000};
 		if (((exponent_a == 4'hf) && (fraction_a == 3'h7)) || ((exponent_b == 4'hf) && (fraction_b == 3'h7)))
 			res = 32'h7fc00000;
 		else if (mantissa_product == 8'd0)
 			res = {sign_result, 31'd0};
-		else begin
-			exponent_unbiased = (exponent_a == 4'd0 ? 10'sd1 - fp_pkg_FP8_BIAS : $signed({6'b000000, exponent_a}) - fp_pkg_FP8_BIAS);
-			exponent_unbiased = exponent_unbiased + (exponent_b == 4'd0 ? 10'sd1 - fp_pkg_FP8_BIAS : $signed({6'b000000, exponent_b}) - fp_pkg_FP8_BIAS);
-			exponent_unbiased = exponent_unbiased + 10'sd1;
-			begin : sv2v_autoblock_1
-				reg signed [31:0] i;
-				for (i = 0; i < 7; i = i + 1)
-					if (!mantissa_normalized[7]) begin
-						mantissa_normalized = mantissa_normalized << 1;
-						exponent_unbiased = exponent_unbiased - 10'sd1;
-					end
-			end
-			exponent_fp32 = sv2v_cast_8($unsigned(exponent_unbiased + fp_pkg_FP32_BIAS));
-			fraction_fp32 = {mantissa_normalized[6:0], 16'b0000000000000000};
+		else
 			res = {sign_result, exponent_fp32, fraction_fp32};
-		end
 	end
 	initial _sv2v_0 = 0;
 endmodule
@@ -506,7 +504,8 @@ module pe (
 	input wire [ACC_WIDTH - 1:0] psum_in;
 	output reg [ACC_WIDTH - 1:0] psum_out;
 	wire [31:0] sum_reg;
-	wire [31:0] product_reg;
+	reg [31:0] product_reg;
+	wire [31:0] product_wire;
 	reg [7:0] weight_reg;
 	always @(posedge clk or negedge rst_n)
 		if (!rst_n) begin
@@ -516,6 +515,7 @@ module pe (
 			out_valid <= 1'b0;
 		end
 		else begin
+			product_reg <= product_wire;
 			if (weight_load)
 				weight_reg <= weight_in;
 			if (step_en) begin
@@ -529,7 +529,7 @@ module pe (
 	fp8_mul fp8_mul_inst(
 		.a(activation_in),
 		.b(weight_reg),
-		.res(product_reg)
+		.res(product_wire)
 	);
 	fp32_add fp32_add_inst(
 		.a(psum_in),
@@ -701,8 +701,8 @@ module tiny_tpu (
 		.ser_en(ser_en),
 		.ser_last(ser_last),
 		.out_fmt(out_fmt),
-		.fp32_in(vpu_fp8_out),
-		.fp8_in(vpu_fp32_out),
+		.fp32_in(vpu_fp32_out),
+		.fp8_in(vpu_fp8_out),
 		.ser_done(ser_done),
 		.m_axis_tdata(m_axis_tdata),
 		.m_axis_tvalid(m_axis_tvalid),
