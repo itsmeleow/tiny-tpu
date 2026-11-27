@@ -6,7 +6,7 @@
 module axis_out_ser #(
     parameter DATA_WIDTH    = 8,
     parameter ACC_WIDTH     = 32,
-)(
+) (
     input  logic        clk,
     input  logic        rst_n,
 

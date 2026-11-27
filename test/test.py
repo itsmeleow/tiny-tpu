@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2026 Leo Wang (itsmeleow)
+# SPDX-FileCopyrightText: © 2026 Leo Wang
 # SPDX-License-Identifier: Apache-2.0
 
 import cocotb

@@ -39,8 +39,9 @@ module pe #(
 );
 
     logic [31:0] sum_reg;
-    logic [31:0] product_reg;
+    logic [31:0] product_reg, product_wire;
     logic [7:0]  weight_reg;
+
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -49,6 +50,7 @@ module pe #(
             psum_out    <= 32'd0;
             out_valid   <= 1'b0;
         end else begin
+            product_reg <= product_wire;
             if (weight_load)
                 weight_reg <= weight_in;
             if (step_en) begin
@@ -65,7 +67,7 @@ module pe #(
     fp8_mul fp8_mul_inst (
         .a(activation_in),
         .b(weight_reg),
-        .res(product_reg)
+        .res(product_wire)
     );
 
     // calculate psum_out = psum_in + product_reg

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026 Leo Wang (itsmeleow)
+ * Copyright (c) 2026 Leo Wang
  * SPDX-License-Identifier: Apache-2.0
  */
 
